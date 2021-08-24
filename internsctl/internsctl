@@ -1,0 +1,141 @@
+#!/bin/bash
+
+help(){
+echo -e "  \nUsage:\n internsctl [options]\n internsctl user [options]\
+ <username>\n internsctl file getinfo [options] <filename>\n\nDisplays server's cpu and \
+memory info.Create new users and \nlists users.Fetches the file's information.\n"
+
+echo "Commands:"
+echo " cpu getinfo                            show CPU information of server."
+echo " memory getinfo                         show memory usage of server."
+echo " user create <username>                 create a new user with its /home dir."
+echo " user list [--sudo-only]                lists out regular or sudo users."
+echo " file getinfo :"
+echo "    options:"
+echo "    -s , --size <filename>              display size of the file"
+echo "    -p , --permission <filename>        display Permissions of a file"
+echo "    -o , --owner <filename>             display Owner of the file."
+echo "    -m , --last-modified <filename>     display last modified date of file."
+
+echo " -h , --help                            display this help."
+echo " -V , --version                         display version."
+echo -e "\nFor more details see internsctl(1)"
+}
+
+
+case "${1}" in
+cpu)
+  case "${2}" in
+  getinfo)
+    lscpu
+    ;;
+  *)
+    echo "Usage : ${0} cpu getinfo" >&2
+    echo "Try 'internsctl --help' for more information." >&2
+    ;;
+  esac
+  ;;
+memory)
+  case "${2}" in
+  getinfo)
+    free
+    ;;
+  *)
+    echo "Usage : ${0} memory getinfo" >&2
+    echo "Try 'internsctl --help' for more information." >&2
+    ;;
+  esac
+  ;;
+user)
+  case "${2}" in
+  create)
+    if [[ -n "${3}" ]]; then
+      useradd -m "${3}"
+      if [[ "${?}" -ne 0 ]]; then
+        echo "Error : Account can't be created" >&2
+        exit 1
+      fi
+      PASSWORD=$(date +%s%n  | sha256sum | head -c8)
+      echo "${PASSWORD}" | passwd --stdin "${3}"
+      passwd -e "${3}"
+      echo "Password : ${PASSWORD}"
+    else
+      echo "Usage : ${0} user create <username>" >&2
+      echo "Try 'internsctl --help' for more information." >&2
+    fi
+    ;;
+  list)
+    if [[ -z "${3}" ]]; then
+      echo "$(getent passwd {1000..2000} | cut -d ':' -f 1)"
+
+    elif [[ "${3}" = '--sudo-only' ]]; then
+      echo "$(getent group wheel | cut -d ':' -f 4)"
+
+    else
+      echo "Usage : ${0} user list [option]" >&2
+      echo "Try 'internsctl --help' for more information." >&2
+    fi
+    ;;
+  esac
+  ;;
+file)
+  case "${2}" in
+  getinfo)
+    if [[ -f "${3}" ]]; then
+      FILENAME=${3}
+      echo "File:     $(basename ${FILENAME})"
+      echo "Access:   $(ls -l ${FILENAME} | cut -d ' ' -f 1 | cut -d. -f1)"
+      echo "Size(B):  $(ls -l ${FILENAME} | cut -d ' ' -f 5)"
+      echo "Owner:    $(ls -l ${FILENAME} | cut -d ' ' -f 3)"
+      echo "Modify:  $(stat ${FILENAME} | grep Modify | cut -d: -f2-)"
+    elif [[ -f "${@: -1}" ]]; then
+      while [[ $# -gt 3 ]]; do
+        case "${3}" in
+        -s | --size)
+          FILENAME=${@: -1}
+          echo "$(ls -l ${FILENAME} | cut -d ' ' -f 5)"
+          shift
+          ;;
+        -p | --permissions)
+          FILENAME=${@: -1}
+          echo "$(ls -l ${FILENAME} | cut -d ' ' -f 1 | cut -d. -f1)"
+          shift
+          ;;
+        -o | --owner)
+          FILENAME=${@: -1}
+          echo "$(ls -l ${FILENAME} | cut -d ' ' -f 3)"
+          shift
+          ;;
+        -m | --last-modified)
+          FILENAME=${@: -1}
+          echo "$(stat ${FILENAME} | grep Modify | cut -d: -f2-)"
+          shift
+          ;;
+        *)
+          echo "${0} file getinfo : invalid option ${3}" >&2
+          echo "Try 'internsctl --help' for more information." >&2
+	  exit 1
+          ;;
+        esac
+      done
+    else
+      echo "Error : File does not exist -- ${@: -1}" >&2
+      echo "Usage : ${0} file getinfo [options].. <filename>" >&2
+      echo "Try 'internsctl --help' for more information." >&2
+    fi
+    ;;
+  esac
+  ;;
+
+-h | --help)
+  help
+  ;;
+-V | --version)
+  echo "internsctl-v0.1.0"
+  ;;
+*)
+  echo "internsctl : invalid command -- $@" >&2
+  echo "Try 'internsctl --help' for more information." >&2
+  exit 1
+  ;;
+esac
