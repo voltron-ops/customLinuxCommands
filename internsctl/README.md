@@ -9,7 +9,6 @@ internsctl - get CPU, memory and file's info. Creates and lists users.
 **internsctl** *COMMAND*\
 **internsctl** *COMMAND* [*OPTION*] [*USERNAME*]\
 **internsctl** *COMMAND* [*OPTION*]... *FILENAME*\
-\
 
 # DESCRIPTION
 **internsctl** fetches the CPU info , memory usage and properties of a file. **internsctl** has to be run with certain commands. It also creates the user with provided username.
